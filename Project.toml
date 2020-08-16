@@ -1,0 +1,11 @@
+name = "Ping"
+uuid = "47f844d2-777d-47ee-a3ef-8977e457b209"
+authors = ["Glen Hertz <glen.hertz@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
