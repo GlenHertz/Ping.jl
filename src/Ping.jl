@@ -2,8 +2,11 @@ module Ping
 
 export ping, monitor_subnet, ip_range, ping_active, monitor_ips, skip_bad_hosts, ip_summary
 
-using Dates, Base.Iterators, Sockets
+using Dates, Base.Iterators, Sockets, Memoize
 
+@memoize function _getnameinfo(ip::IPv4)
+    getnameinfo(ip)
+end
 
 function _ping(results::Channel, jobid::Integer, ip::IPv4; max_ping::Millisecond=Millisecond(999),
                                                            interval::Millisecond=Millisecond(1000),
@@ -41,8 +44,7 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
                                          log=true,
                                          summarize=false)
     N = length(ips)
-    #results = Channel{Tuple{Int64, Millisecond}}(N)
-    results = Channel{Any}(N)
+    results = Channel{Tuple{Int64, Millisecond}}(N)
     if rate < Millisecond(200)
         @warn "rate of $rate may flood your network, consider increasing rate"
     end
@@ -126,13 +128,24 @@ function ip_range(byte1::T, byte2::T, byte3::T, byte4::T)
     ips = getaddrinfo.([join(ip[end:-1:1], ".") for ip in ips])
 end
 
+function hasdns(fullyqualifiednames)
+    m = match(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", fullyqualifiednames)
+    isnothing(m)
+end
+function gethostname(fullyqualifiedname)
+    if hasdns(fullyqualifiedname)
+        return first(split(fullyqualifiedname, "."))
+    else
+        return fullyqualifiedname
+    end
+end
 function alias(name::AbstractString)
     idxs = [1,min(2, length(name)), length(name)]
     name[idxs]
 end
 function alias(name::IPv4, fullyqualifiedname::AbstractString)
     n = fullyqualifiedname
-    if string(name) == n
+    if !hasdns(fullyqualifiedname)
         return n[end-2:end]
     end
     hostname = first(split(n, "."))
@@ -141,9 +154,8 @@ end
 function alias2(name::IPv4)
     string(name)[end-2:end]
 end
-
 function ip_summary(ip::IPv4)
-    fullyqualifiedname = getnameinfo(ip)
+    fullyqualifiedname = _getnameinfo(ip)
     hostname = first(split(fullyqualifiedname, "."))
     aliases = alias(hostname)
 end
@@ -154,12 +166,9 @@ function ip_summary(ips::AbstractVector{IPv4})
     aliases = Vector{Any}(undef, N)
     @sync for i in 1:N
         @async begin
-            t1 = now()
-            fullyqualifiednames[i] = getnameinfo(ips[i])
-            hostnames[i] = first(split(fullyqualifiednames[i], "."))
+            fullyqualifiednames[i] = _getnameinfo(ips[i])
+            hostnames[i] = gethostname(fullyqualifiednames[i])
             aliases[i] = alias(ips[i], fullyqualifiednames[i])
-            t2 = t1 - now()
-            #println("Iteration $i took $(Millisecond(t2).value/1000) seconds")
         end
     end
     ipad = mapreduce(x->length(string(x)), max, ips)
