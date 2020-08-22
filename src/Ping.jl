@@ -67,7 +67,7 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
     fname = "ping_$(start).csv"
     f = open(fname, "w")
     tpad = 23
-    update_time = start + update_interval
+    update_time = start + update_interval - rate ÷ 2
     str = string(rpad("Time", tpad), ",", join(lpad.(alias2.(ips), 3), ","))
     if log
         println(str)
@@ -95,7 +95,7 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
                 println(str)
                 println(f, str)
             end
-            update_time = now() + update_interval
+            update_time = now() + update_interval - rate ÷ 2
         end
         if now() > start + run_for
             break
