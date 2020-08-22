@@ -42,7 +42,8 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
                                          rate::Millisecond=Millisecond(200),
                                          verbose=false,
                                          log=true,
-                                         summarize=false)
+                                         summarize=false,
+                                         delim="|")
     N = length(ips)
     results = Channel{Tuple{Int64, Millisecond}}(N)
     if rate < Millisecond(200)
@@ -68,9 +69,10 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
     f = open(fname, "w")
     tpad = 23
     update_time = start + update_interval - rate ÷ 2
-    str = string(rpad("Time", tpad), ",", join(lpad.(alias2.(ips), 3), ","))
     if log
+        str = string(rpad("Time", tpad), delim, join(lpad.(alias2.(ips), 3), delim))
         println(str)
+        str = string(rpad("Time", tpad), ",", join(lpad.(alias2.(ips), 3), ","))
         println(f, str)
     end
     while true
@@ -87,12 +89,13 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
                 end
             end
             rm_negatives = [ismissing(p) ? lpad("", 3) : lpad(p.value, 3) for p in latest_pings]
-            str = string(rpad(now(), tpad, "0"), ",", join(rm_negatives, ","))
             if log
                 if summarize && maximum(counts) % 30 == 0
                     println(summary)
                 end
+                str = string(rpad(now(), tpad, "0"), delim, join(rm_negatives, delim))
                 println(str)
+                str = string(rpad(now(), tpad, "0"), ",", join(rm_negatives, ","))
                 println(f, str)
             end
             update_time = now() + update_interval - rate ÷ 2
