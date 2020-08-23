@@ -194,12 +194,13 @@ function skip_bad_hosts(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10
     println("Info: Scanning $(N) hosts for $run_for to skip ones with 100% packet loss")
     stats = ping(ips; run_for, verbose, log, summarize)
     #foreach(println, stats)
-    skips = ips[(filter(i -> stats[i].min == max_ping, 1:N))]
-    setdiff!(ips, skips)
-    if length(skips) > 0
-        println("Warning: Skipping $(length(skips)) IPs with 100% packet loss after $run_for")
+    keep = filter(x->!ismissing(x.min), stats)
+    filter!(x->x.min != max_ping, keep)
+    skips = length(ips) - length(keep)
+    if skips > 0
+        println("Warning: Skipping $skips IPs with 100% packet loss after $run_for")
     end
-    return ips
+    return [k.ip for k in keep]
 end
 function skip_bad_hosts(ips::AbstractVector{<:AbstractString}; kwargs...)
     ips = getaddrinfo.(ips)
