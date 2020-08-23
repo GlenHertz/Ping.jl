@@ -70,10 +70,8 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
     tpad = 23
     update_time = start + update_interval - rate ÷ 2
     if log
-        str = string(rpad("Time", tpad), delim, join(lpad.(alias2.(ips), 3), delim))
-        println(str)
-        str = string(rpad("Time", tpad), ",", join(lpad.(alias2.(ips), 3), ","))
-        println(f, str)
+        println(   rpad("Time", tpad), delim, join(lpad.(alias.(ips), 3), delim))
+        println(f, rpad("Time", tpad), ",", join(lpad.(gethostname.(ips), 3), ","))
     end
     while true
         jobid, ms = take!(results)
@@ -91,12 +89,11 @@ function ping(ips::AbstractVector{IPv4}; run_for::TimePeriod=Second(10),
             rm_negatives = [ismissing(p) ? lpad("", 3) : lpad(p.value, 3) for p in latest_pings]
             if log
                 if summarize && maximum(counts) % 30 == 0
-                    println(summary)
+                    print(summary)
+                    println(   rpad("Time", tpad), delim, join(lpad.(alias.(ips), 3), delim))
                 end
-                str = string(rpad(now(), tpad, "0"), delim, join(rm_negatives, delim))
-                println(str)
-                str = string(rpad(now(), tpad, "0"), ",", join(rm_negatives, ","))
-                println(f, str)
+                println(   rpad(now(), tpad, "0"), delim, join(rm_negatives, delim))
+                println(f, rpad(now(), tpad, "0"), ",",   join(rm_negatives, ","))
             end
             update_time = now() + update_interval - rate ÷ 2
         end
@@ -142,20 +139,20 @@ function gethostname(fullyqualifiedname)
         return fullyqualifiedname
     end
 end
+function gethostname(ip::IPv4)
+    gethostname(_getnameinfo(ip))
+end
 function alias(name::AbstractString)
     idxs = [1,min(2, length(name)), length(name)]
     name[idxs]
 end
-function alias(name::IPv4, fullyqualifiedname::AbstractString)
-    n = fullyqualifiedname
-    if !hasdns(fullyqualifiedname)
+function alias(ip::IPv4)
+    n = fullyqualifiedname = _getnameinfo(ip)
+    if !hasdns(n)
         return n[end-2:end]
     end
-    hostname = first(split(n, "."))
+    hostname = gethostname(n)
     alias(hostname)
-end
-function alias2(name::IPv4)
-    string(name)[end-2:end]
 end
 function ip_summary(ip::IPv4)
     fullyqualifiedname = _getnameinfo(ip)
@@ -171,7 +168,7 @@ function ip_summary(ips::AbstractVector{IPv4})
         @async begin
             fullyqualifiednames[i] = _getnameinfo(ips[i])
             hostnames[i] = gethostname(fullyqualifiednames[i])
-            aliases[i] = alias(ips[i], fullyqualifiednames[i])
+            aliases[i] = alias(ips[i])
         end
     end
     ipad = mapreduce(x->length(string(x)), max, ips)
